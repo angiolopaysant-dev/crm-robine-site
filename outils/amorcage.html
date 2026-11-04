@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self'; connect-src 'none'; base-uri 'none'; form-action 'none'">
+<meta name="referrer" content="no-referrer">
+<meta name="robots" content="noindex,nofollow">
+<title>Amorçage CRM</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@500;600;700&display=swap">
+<link rel="stylesheet" href="../style.css">
+</head>
+<body>
+<header class="top"><div class="top-in"><h1>Amorçage du CRM (une seule fois)</h1></div></header>
+<main>
+<section class="box" style="display:flex;flex-direction:column;gap:10px">
+  <h2>À quoi sert cette page</h2>
+  <p class="hint">Elle fonctionne entièrement dans ton navigateur, sans rien envoyer sur Internet. Elle crée la <b>clé de données</b> (à mettre dans le secret GitHub <code>DATA_KEY</code>) et ton <b>compte administrateur</b> (le fichier <code>_site/users.json</code> à déposer dans le dépôt privé). Ensuite, les autres comptes se gèrent depuis la page Administration du site.</p>
+</section>
+<form id="f" style="max-width:640px">
+  <h2>1. Clé de données</h2>
+  <label class="f">Clé de données (base64, 32 octets)<input id="k" spellcheck="false" autocomplete="off"><small>Laisse vide pour en générer une nouvelle. Si tu as déjà mis une clé dans DATA_KEY, colle-la ici.</small></label>
+  <h2>2. Ton compte administrateur</h2>
+  <label class="f">Identifiant<input id="u" autocomplete="off" autocapitalize="none" spellcheck="false" value="angi"></label>
+  <label class="f">Nom affiché<input id="n" value="Angi"></label>
+  <label class="f">Mot de passe<input type="password" id="p1" autocomplete="new-password"><div class="meter"><i id="m" style="width:0"></i></div><small id="mh">Au moins 16 caractères.</small></label>
+  <label class="f">Confirmation<input type="password" id="p2" autocomplete="new-password"></label>
+  <p class="err" id="e" hidden></p>
+  <button class="primary" type="submit" id="go">Générer</button>
+</form>
+<section id="out" hidden style="display:flex;flex-direction:column;gap:14px;max-width:900px">
+  <p class="okmsg">C’est prêt. Copie les deux éléments ci-dessous, puis ferme cette page.</p>
+  <div class="box" style="display:flex;flex-direction:column;gap:8px"><h3>Secret GitHub DATA_KEY</h3><p class="hint">Dépôt <b>crm-robine</b> → Settings → Secrets and variables → Actions → New repository secret, nom <code>DATA_KEY</code>. Garde aussi une copie dans ton gestionnaire de mots de passe : sans elle, plus personne ne peut se connecter.</p><textarea id="ok" readonly style="min-height:60px;font-family:monospace"></textarea><button class="btn" type="button" data-copy="ok">Copier la clé</button></div>
+  <div class="box" style="display:flex;flex-direction:column;gap:8px"><h3>Fichier _site/users.json</h3><p class="hint">Dans le dépôt <b>crm-robine</b> : Add file → Create new file, nom <code>_site/users.json</code>, colle ce contenu, Commit. Il ne contient que des données chiffrées.</p><textarea id="ou" readonly style="min-height:220px;font-family:monospace;font-size:.8rem"></textarea><button class="btn" type="button" data-copy="ou">Copier users.json</button></div>
+</section>
+</main>
+<script src="../crypto.js"></script>
+<script src="amorcage.js"></script>
+</body>
+</html>
