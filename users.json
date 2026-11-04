@@ -1,0 +1,17 @@
+{
+ "v": 1,
+ "kdf": "PBKDF2-SHA256",
+ "iter": 600000,
+ "comptes": [
+  {
+   "id": "165925f464e56d9ac59c9df3058020bf349f6c76daed75a497ad19d3d2526d3f",
+   "sel": "Oa4Vvxd+ePHuwEF38X9+eg==",
+   "iv": "K8xkugHjw7g0XszU",
+   "cle": "r7UnSQgFmWMJZjVkjrv5bvIvSmJr2hLWmd8OAOORizHoGEd04F2OzBk/3216j+yx2zCNvoz6T0U+HFV6kLUYMXaQaBp23oddtO/ORLlyOHqxUiIku3ALOcOjC/YXWk76l5hErAdTWlFftiowyTT9kDqC8iQkhNdUk1OezdjKfwUagnELwi33dp8jNrU="
+  }
+ ],
+ "annuaire": {
+  "iv": "zGHIExikk+8IlKgj",
+  "ct": "/8BEtPmhx8SZXfFPKnH5tpLUkPw/RfRIqDAkXzijPqUiFLpCAMd5985aYXOqZWNzlRR7b2Lob7QfMiWSSy7iNI/bzBozSlJ2/YumJ6Iez426a9X2aFs0TRlPO5KkrORoxq0Q1f94oeG+jrFnPEQTZ2tTjf+vJk9w6mA8fQsErEgdL12pYifbKmdVyhJ6xb2dZNyx8LhHK/0t4OMaoAc6OGt/3KOOUCkaI4T+2jPF1mDmq8oqvakWGexLoBp37Uhc13TqSEg5ikSzzZkO7pBT"
+ }
+}
