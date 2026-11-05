@@ -1111,7 +1111,12 @@ function vLogin(errMsg){
 }
 (async()=>{
   if(!window.crypto||!crypto.subtle){ view.innerHTML='<p class="err">Ce navigateur ne permet pas le chiffrement : ouvre le site en https dans un navigateur à jour.</p>'; return; }
-  if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(()=>{});
+  if("serviceWorker" in navigator){
+    // nouvelle version du site installée : on recharge une fois pour l'utiliser tout de suite
+    const avait=!!navigator.serviceWorker.controller; let fait=false;
+    navigator.serviceWorker.addEventListener("controllerchange",()=>{ if(avait&&!fait){ fait=true; location.reload(); } });
+    navigator.serviceWorker.register("sw.js",{updateViaCache:"none"}).then(r=>r.update()).catch(()=>{});
+  }
   try{ const s=await IDB.get("session");
     if(s && s.key && s.exp>Date.now()){ S.key=s.key; S.me={id:s.id,login:s.login}; await afterLogin(); return; }
     if(s) await IDB.del("session");
