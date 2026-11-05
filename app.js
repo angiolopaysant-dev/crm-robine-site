@@ -11,7 +11,7 @@ const CATS = {preprojet:"Pré-projet",devis:"Devis",admin:"Administratif",techni
 const TYPES = {rappel:"Rappel",historique:"Note",devis:"Devis",installation:"Matériel",fiche:"Fiche",fournisseur:"Fournisseur","dossier-chantier":"Dossier chantier"};
 const ROLES = {admin:"Administrateur",edition:"Modification",lecture:"Lecture seule"};
 const SOURCE = "site CRM";
-const S = { fiches:[], rappels:[], envois:[], dossiers:{}, docs:[], recents:[], names:{}, agenda:[], rappelsRaw:[], over:{}, agendaDb:[], mailsDb:[], vus:{}, prevSeen:{}, blobs:{},
+const S = { fiches:[], rappels:[], envois:[], dossiers:{}, docs:[], recents:[], names:{}, agenda:[], rappelsRaw:[], over:{}, agendaDb:[], mailsDb:[], vus:{}, prevSeen:{}, blobs:{}, coffre:[],
   cfg:null, key:null, rawKey:null, me:null, canEdit:false, genere:"",
   filt:"tous", q:"", dtab:"client", form:{type:"rappel"}, ready:false, seen:new Set() };
 
@@ -133,7 +133,10 @@ const col=(row,...names)=>{ for(const k of Object.keys(row)){ const kk=slug(k); 
 const sec=(f,re)=>P(f).sections.find(s=>re.test(slug(s.titre)));
 function inline(s){
   let h=esc(s);
-  h=h.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(m,t,a)=>{ const name=t.split("/").pop().replace(/\.md$/,""); const f=findByName(name); const label=a||name;
+  h=h.replace(/\[\[([^\]|]+)(?:\|([^\]]+))?\]\]/g,(m,t,a)=>{
+    if(/\.[a-z0-9]{2,5}$/i.test(t) && !/\.md$/i.test(t)){ const raw=t.replace(/&amp;/g,"&"); const doc=S.coffre.find(d=>d.chemin===raw||d.chemin.endsWith("/"+raw)||d.nom===raw.split("/").pop()); const lab=a||raw.split("/").pop();
+      return doc?'<a href="#" class="linkbtn" data-viewfile="'+esc(doc.id)+'">'+lab+'</a>':'<span>'+lab+'</span>'; }
+    const name=t.split("/").pop().replace(/\.md$/,""); const f=findByName(name); const label=a||name;
     return f?'<button class="linkbtn" data-open="'+esc(f.id)+'">'+label+'</button>':'<span>'+label+'</span>'; });
   return h.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>").replace(/(^|[^*])\*([^*\s][^*]*)\*/g,"$1<em>$2</em>");
 }
@@ -157,7 +160,8 @@ const clients=()=>S.fiches.filter(f=>f.type==="client");
 const fournisseurs=()=>S.fiches.filter(f=>f.type==="fournisseur");
 function findByName(name){ const s=slug(name); return S.fiches.find(f=>slug(f.nom)===s && (f.type==="client"||f.type==="fournisseur")) || S.fiches.find(f=>slug(f.nom)===s); }
 const D=id=>S.dossiers[id]||{};
-const docsOf=(id,cat)=>S.docs.filter(d=>d.dossier===id && (!cat || d.cat===cat)).sort((a,b)=>(b.date||b.ajoute_le||"").localeCompare(a.date||a.ajoute_le||""));
+const allDocs=()=>S.docs.concat(S.coffre);
+const docsOf=(id,cat)=>allDocs().filter(d=>d.dossier===id && (!cat || d.cat===cat)).sort((a,b)=>(b.date||b.ajoute_le||"").localeCompare(a.date||a.ajoute_le||""));
 function ficheDevis(f){ const s=sec(f,/^devis/); const t=s&&parseTable(s.lignes); return t?t.rows.filter(r=>col(r,"objet")||col(r,"statut")):[]; }
 function linkedNotes(f){ return S.fiches.filter(d=>d.type!=="client"&&d.type!=="fournisseur"&&d.id!=="tableau-de-bord"&&slug((P(d).fm.client||"").replace(/[\[\]]/g,""))===slug(f.nom)); }
 function projet(f){
@@ -328,7 +332,8 @@ function vAccueil(){
   const counts={}; clients().forEach(f=>{ const s=stageOf(f); counts[s]=(counts[s]||0)+1; });
   h+='<section><h2>Dossiers <small>les plus actifs en premier, clic droit (ou appui long) pour modifier</small></h2><div style="display:flex;flex-direction:column;gap:10px;margin-bottom:12px"><div class="search"><input type="search" id="q" placeholder="Chercher : nom, ville, téléphone, référence PAC…" value="'+esc(S.q)+'" aria-label="Chercher un dossier"></div>'+
     '<div class="filters" role="group" aria-label="Filtrer par étape"><button data-filt="tous" aria-pressed="'+(S.filt==="tous")+'">Tous</button>'+STAGES.concat([["termine","Terminé"]]).map(([k,l])=>'<button data-filt="'+k+'" aria-pressed="'+(S.filt===k)+'">'+l+' '+(counts[k]||0)+'</button>').join("")+'</div></div><div class="grid" id="grid"></div></section>';
-  const fo=fournisseurs(); if(fo.length) h+='<section><h2>Fournisseurs</h2><div class="recent">'+fo.map(f=>'<button data-open="'+esc(f.id)+'"><span class="av">'+esc(initials(f.nom))+'</span>'+esc(f.nom)+'</button>').join("")+'</div></section>';
+  const fo=fournisseurs(); if(fo.length) h+='<section><h2>Fournisseurs <small><a href="#fournisseurs">voir les fiches</a></small></h2><div class="recent">'+fo.map(f=>'<button data-open="'+esc(f.id)+'"><span class="av">'+esc(initials(f.nom))+'</span>'+esc(f.nom)+'</button>').join("")+'</div></section>';
+  if(S.fiches.some(f=>f.id==="tableau-de-bord")) h+='<section><button class="btn ghost" data-open="tableau-de-bord">Tableau de bord Obsidian</button></section>';
   view.innerHTML=h; drawGrid(); hydrate(view);
   $("q").addEventListener("input",e=>{ S.q=e.target.value; drawGrid(); });
 }
@@ -404,10 +409,10 @@ function drawPane(f){
   hydrate(el);
 }
 function docRow(d){
-  const img=/^image\//.test(docMime(d)); const w=nameOf(d.par); const who2=w?" par "+w:"";
-  return '<li class="doc" data-edit="doc:'+esc(d.id)+'"><span class="doc-ic'+(img?" img":"")+'"'+(img?blobAttr(d.fichier,true):"")+'>'+(img?"":esc(((d.nom||"").split(".").pop()||"DOC").toUpperCase().slice(0,4)))+'</span>'+
+  const img=/^image\//.test(docMime(d)); const w=nameOf(d.par); const who2=d.coffre?", rangé dans le coffre Obsidian":(w?" par "+w:"");
+  return '<li class="doc"'+(d.coffre?"":' data-edit="doc:'+esc(d.id)+'"')+'><span class="doc-ic'+(img?" img":"")+'"'+(img?blobAttr(d.fichier,true):"")+'>'+(img?"":esc(((d.nom||"").split(".").pop()||"DOC").toUpperCase().slice(0,4)))+'</span>'+
     '<div class="doc-b"><a class="doc-n" href="#" data-viewfile="'+esc(d.id)+'">'+esc(d.titre||d.nom)+'</a><div class="doc-m">'+esc(CATS[d.cat]||"")+", "+esc(frDate(d.date||(d.ajoute_le||"").slice(0,10)))+esc(who2)+(d.source==="mail"?esc(", reçu par mail"):"")+(d.taille?", "+Math.max(1,Math.round(d.taille/1024))+" Ko":"")+(!S.blobs[d.fichier]&&!LOCAL.has(d.fichier)?esc(", en cours de publication"):"")+'</div></div>'+
-    (S.canEdit?'<button class="doc-x" data-deldoc="'+esc(d.id)+'" aria-label="Retirer du dossier">×</button>':"")+'</li>';
+    (S.canEdit&&!d.coffre?'<button class="doc-x" data-deldoc="'+esc(d.id)+'" aria-label="Retirer du dossier">×</button>':"")+'</li>';
 }
 function dropZone(id,cat,label,accept){
   if(!S.canEdit) return '<p class="conn">L’ajout de fichiers n’est pas disponible pour ton accès. Demande à Angi de te donner le droit de modifier.</p>';
@@ -438,7 +443,7 @@ function paneClient(f){
   let left='<section><h3>Coordonnées</h3><div class="box"><dl class="kv">'+kv.map(([k,v])=>'<dt>'+k+'</dt><dd>'+esc(v)+'</dd>').join("")+'</dl>'+(extra.length?'<div class="md" style="margin-top:8px">'+mdBlock(extra)+'</div>':"")+'</div></section>';
   const inst=(()=>{ const s=sec(f,/^installations/); const t=s&&parseTable(s.lignes); return t?t.rows.filter(r=>Object.values(r).some(Boolean)):[]; })();
   const eqIc='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><circle cx="14" cy="12" r="4"/><path d="M14 8v8M10 12h8M6 9h2M6 13h2"/></svg>';
-  left+='<section><h3>Parc d’équipement</h3>'+(inst.length?'<ul class="list">'+inst.map(r=>{ const pose=col(r,"mise-en-service","pose"); const rest=Object.entries(r).filter(([k,v])=>v && !/equipement|marque|mise-en-service|pose/.test(slug(k)));
+  if(f.type!=="fournisseur") left+='<section><h3>Parc d’équipement</h3>'+(inst.length?'<ul class="list">'+inst.map(r=>{ const pose=col(r,"mise-en-service","pose"); const rest=Object.entries(r).filter(([k,v])=>v && !/equipement|marque|mise-en-service|pose/.test(slug(k)));
       return '<li class="box equip" data-edit="ligne:'+esc(id)+'" data-txt="'+esc(Object.entries(r).filter(([k,v])=>v).map(([k,v])=>k+" : "+v).join(" ; "))+'"><span class="equip-ic">'+eqIc+'</span><div><b>'+inline(col(r,"equipement")||"Équipement")+'</b><span>'+inline(col(r,"marque"))+'</span><br><span>Posé le <strong>'+esc(pose?frDate(pose):"—")+'</strong>'+(rest.length?", "+rest.map(([k,v])=>esc(k)+" : "+inline(v)).join(", "):"")+'</span></div></li>'; }).join("")+'</ul>'
       :'<p class="empty">Aucun équipement posé enregistré. Ajoute-le depuis « + Matériel » une fois la pose faite.</p>')+(S.canEdit?'<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap"><button class="btn ghost" data-new="installation" data-for="'+esc(id)+'">+ Matériel posé</button><button class="btn ghost" data-new="historique" data-for="'+esc(id)+'">+ Note</button><button class="btn ghost" data-new="rappel" data-for="'+esc(id)+'">+ Rappel</button></div>':"")+'</section>';
   const hist=((sec(f,/^historique/)||{lignes:[]}).lignes).map(l=>/^\s*-\s*(\d{4}-\d{2}-\d{2})?\s*[—-]?\s*(.*)$/.exec(l)).filter(m=>m&&m[2]).map(m=>({d:m[1]||"",t:m[2]}));
@@ -453,7 +458,47 @@ function paneClient(f){
   right+='<section><h3>Dernières interventions</h3>'+(hist.length?'<div class="box"><ul class="tl">'+hist.slice(0,8).map(tl).join("")+'</ul>'+(hist.length>8?'<details style="margin-top:10px"><summary class="linkbtn">Tout l’historique ('+hist.length+')</summary><ul class="tl" style="margin-top:10px">'+hist.slice(8).map(tl).join("")+'</ul></details>':"")+'</div>':'<p class="empty">Pas encore d’intervention notée.</p>')+'</section>';
   const ml=S.mailsDb.filter(m=>m.dossier===f.id).sort((a,b)=>mailKey(b).localeCompare(mailKey(a)));
   right+='<section><h3>Mails pro</h3><div id="mails">'+(ml.length?'<ul class="list">'+ml.slice(0,10).map(m=>'<li><button class="mail" data-mail="'+esc(m._id)+'" data-edit="mail:'+esc(m._id)+'" style="width:100%;text-align:left;cursor:pointer"><span class="mail-t"><span>'+esc((m.de||"").replace(/<.*>/,"").trim())+'</span><span>'+esc(m.recu||"")+'</span></span><b>'+esc(m.sujet||"(sans objet)")+'</b><p>'+esc((m.apercu||"").replace(/\s+/g," ").slice(0,220))+'</p></button></li>').join("")+'</ul>'+(ml.length>10?'<p class="hint">'+(ml.length-10)+' mail(s) plus ancien(s)</p>':""):'<p class="empty">Aucun mail rattaché à ce dossier. Ta synchro Claude les rattache depuis ta boîte OVH.</p>')+'</div></section>';
-  return '<div class="cols" style="margin-top:14px"><div style="display:flex;flex-direction:column;gap:18px">'+left+'</div><div style="display:flex;flex-direction:column;gap:18px">'+right+'</div></div>';
+  const isF=f.type==="fournisseur";
+  if(isF){
+    const cmd=(sec(f,/^ce-qu-on-y-commande/)||{lignes:[]}).lignes.filter(l=>l.trim()&&l.trim()!=="-");
+    const lies=linkedClients(f);
+    left+='<section><h3>Ce qu’on y commande</h3>'+(cmd.length?'<div class="box md">'+mdBlock(cmd)+'</div>':'<p class="empty">Rien de noté.</p>')+'</section>';
+    left+='<section><h3>Dossiers clients liés</h3>'+(lies.length?'<div class="recent">'+lies.map(c=>'<button data-open="'+esc(c.id)+'"><span class="av">'+esc(initials(c.nom))+'</span>'+esc(c.nom)+'</button>').join("")+'</div>':'<p class="empty">Aucun dossier client lié.</p>')+'</section>';
+  }
+  const docs=isF?docsOf(id):[];
+  const full='<details class="box md fullfiche"'+(isF?"":"")+'><summary>Fiche complète (telle que dans Obsidian)</summary>'+mdBlock(P(f).sections.flatMap(s=>(s.titre?["## "+s.titre]:[]).concat(s.lignes)))+'</details>';
+  return '<div class="cols" style="margin-top:14px"><div style="display:flex;flex-direction:column;gap:18px">'+left+(docs.length?'<section><h3>Documents</h3><ul class="list">'+docs.map(docRow).join("")+'</ul></section>':"")+'</div><div style="display:flex;flex-direction:column;gap:18px">'+right+'</div></div>'+full;
+}
+/* Clients liés à un fournisseur : section « Dossiers clients liés » + fiches clients qui le citent. */
+function linkedClients(f){
+  const out=new Map(); const s=sec(f,/^dossiers-clients-lies/);
+  (s?s.lignes.join("\n"):"").replace(/\[\[([^\]|]+)/g,(m,t)=>{ const c=findByName(t.split("/").pop()); if(c&&c.type==="client") out.set(c.id,c); });
+  const re=new RegExp("\\[\\[(?:Fournisseurs/)?"+f.nom.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")+"(?:\\|[^\\]]*)?\\]\\]","i");
+  clients().forEach(c=>{ if(re.test(c.contenu)) out.set(c.id,c); });
+  return [...out.values()].sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
+}
+
+/* ---------- FOURNISSEURS ---------- */
+function vFournisseurs(){
+  setHead("Fournisseurs"); setTab("fournisseurs");
+  const q=slug(S.fq||"");
+  const list=fournisseurs().filter(f=>!q||slug(f.nom+" "+f.contenu).includes(q)).sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
+  const icT='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 01-2.2 2 19.8 19.8 0 01-8.6-3.1 19.5 19.5 0 01-6-6A19.8 19.8 0 012.1 4.2 2 2 0 014.1 2h3a2 2 0 012 1.7c.1.9.4 1.8.7 2.7a2 2 0 01-.5 2.1L8 9.8a16 16 0 006 6l1.3-1.3a2 2 0 012.1-.4c.9.3 1.8.6 2.7.7a2 2 0 011.7 2z"/></svg>';
+  const icM='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M22 6l-10 7L2 6"/></svg>';
+  const vide=v=>!v||/^\*?à compléter\*?$/i.test(String(v).trim());
+  const card=f=>{ const c=coordOf(f), p=P(f).fm, lies=linkedClients(f);
+    const cmd=(sec(f,/^ce-qu-on-y-commande/)||{lignes:[]}).lignes.map(l=>l.replace(/^\s*[-*]\s*/,"").trim()).filter(Boolean).slice(0,3);
+    const hist=((sec(f,/^historique/)||{lignes:[]}).lignes).map(l=>/^\s*-\s*(\d{4}-\d{2}-\d{2})\s*[—-]\s*(.*)$/.exec(l)).filter(Boolean).sort((a,b)=>b[1].localeCompare(a[1]))[0];
+    const tel=vide(c.telephone)?"":c.telephone.trim(), mail=vide(c.email)?"":c.email.trim(), pend=pendingFor(f).length;
+    return '<article class="fcard"><button class="fcard-h" data-open="'+esc(f.id)+'"><span class="av">'+esc(initials(f.nom))+'</span><span><b>'+esc(f.nom)+'</b>'+(p.marques?'<small>'+esc(p.marques)+'</small>':"")+'</span>'+(pend?'<span class="notif" style="position:static;box-shadow:none">'+pend+'</span>':"")+'</button>'+
+      '<dl class="kv"><dt>Contact</dt><dd>'+(vide(c.contact)?'<span class="hint">à compléter</span>':esc(c.contact))+'</dd>'+
+      (cmd.length?'<dt>Commande</dt><dd>'+cmd.map(x=>inline(x)).join("<br>")+'</dd>':"")+
+      (lies.length?'<dt>Dossiers</dt><dd>'+lies.map(x=>'<button class="linkbtn" data-open="'+esc(x.id)+'">'+esc(x.nom)+'</button>').join(", ")+'</dd>':"")+
+      (hist?'<dt>Dernier échange</dt><dd>'+esc(frDate(hist[1]))+' — '+inline(hist[2])+'</dd>':"")+'</dl>'+
+      '<div class="fcard-a">'+(tel?'<a class="btn ghost" href="tel:'+esc(tel.replace(/[^\d+]/g,""))+'">'+icT+esc(tel)+'</a>':'<span class="btn ghost" aria-disabled="true">'+icT+'Pas de n°</span>')+(mail?'<a class="btn ghost" href="mailto:'+esc(mail)+'">'+icM+'Écrire</a>':'<span class="btn ghost" aria-disabled="true">'+icM+'Pas d’email</span>')+'</div></article>'; };
+  view.innerHTML='<section><div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:12px"><div class="search" style="flex:1;min-width:220px"><input type="search" id="fq" placeholder="Chercher : fournisseur, marque, contact…" value="'+esc(S.fq||"")+'" aria-label="Chercher un fournisseur"></div>'+(S.canEdit?'<button class="btn" data-newfourn="1">+ Nouveau fournisseur</button>':"")+'</div>'+
+    '<div class="grid" id="fgrid">'+(list.length?list.map(card).join(""):'<p class="empty">Aucun fournisseur'+(q?" pour cette recherche":"")+'.</p>')+'</div></section>';
+  const qi=$("fq"); qi.addEventListener("input",e=>{ S.fq=e.target.value; const pos=e.target.selectionStart; vFournisseurs(); const n=$("fq"); n.focus(); try{ n.setSelectionRange(pos,pos); }catch(x){} });
 }
 const mailKey=m=>{ const r=(m.recu||"").match(/(\d{2})\/(\d{2})\/(\d{4})\s*(\d{2}:\d{2})?/); return r?r[3]+r[2]+r[1]+(r[4]||""):(m.ajoute_le||""); };
 function paneDevis(f){
@@ -487,7 +532,7 @@ function panePhotos(f){
   const id=f.id, ph=docsOf(id,"photo"), cover=D(id).photo;
   return '<div style="display:flex;flex-direction:column;gap:12px;margin-top:14px">'+dropZone(id,"photo","Photos de visite, de chantier, de la plaque signalétique…","image/*,video/*")+
     (ph.length?'<div class="photos">'+ph.map(d=>/^video/.test(docMime(d))?'<figure><video'+blobAttr(d.fichier)+' controls playsinline style="width:100%;height:100%;object-fit:cover"></video>'+(S.canEdit?'<figcaption><button data-deldoc="'+esc(d.id)+'">Retirer</button></figcaption>':"")+'</figure>':
-      '<figure data-edit="doc:'+esc(d.id)+'"><a href="#" data-viewfile="'+esc(d.id)+'"><img'+blobAttr(d.fichier)+' alt="'+esc(d.nom)+'"></a><figcaption>'+(cover===d.fichier?'<button disabled>Photo du dossier</button>':(S.canEdit?'<button data-setcover="'+esc(d.fichier)+'" data-for="'+esc(id)+'">En couverture</button>':""))+(S.canEdit?'<button data-deldoc="'+esc(d.id)+'">Retirer</button>':"")+'</figcaption></figure>').join("")+'</div>':'<p class="empty">Aucune photo.</p>')+'</div>';
+      '<figure'+(d.coffre?"":' data-edit="doc:'+esc(d.id)+'"')+'><a href="#" data-viewfile="'+esc(d.id)+'"><img'+blobAttr(d.fichier)+' alt="'+esc(d.nom)+'"></a><figcaption>'+(cover===d.fichier?'<button disabled>Photo du dossier</button>':(S.canEdit?'<button data-setcover="'+esc(d.fichier)+'" data-for="'+esc(id)+'">En couverture</button>':""))+(S.canEdit&&!d.coffre?'<button data-deldoc="'+esc(d.id)+'">Retirer</button>':"")+'</figcaption></figure>').join("")+'</div>':'<p class="empty">Aucune photo.</p>')+'</div>';
 }
 function openMail(id){
   const m=findMail(id);
@@ -497,7 +542,7 @@ function openMail(id){
 /* ---------- ouverture des fichiers (aperçu PDF, image, Word, Excel) ---------- */
 function download(file,name){ const u=URL.createObjectURL(file); const a=document.createElement("a"); a.href=u; a.download=name||"fichier"; document.body.append(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),60000); }
 async function openFile(docId){
-  const d=S.docs.find(x=>x.id===docId); if(!d) return;
+  const d=allDocs().find(x=>x.id===docId); if(!d) return;
   const ext=extOf(d.nom||d.fichier), mime=docMime(d);
   const sh=sheet('<h3>'+esc(d.titre||d.nom)+'</h3><p class="hint"><span class="spin"></span> Ouverture…</p>'); sh.style.maxWidth="980px";
   let file; try{ file=await getBlob(d.fichier,mime); if(!file) throw new Error("absent"); }catch(e){ sh.innerHTML='<h3>'+esc(d.titre||d.nom)+'</h3><p class="conn">'+(S.blobs[d.fichier]?"Impossible de récupérer ce fichier. Réessaie dans un instant.":"Ce fichier vient d’être ajouté et sera disponible dans une minute environ (publication en cours).")+'</p><button class="btn ghost" data-close>Fermer</button>'; return; }
@@ -852,10 +897,10 @@ function route(force){
   if(!force && h===lastRoute) return; const changed=h!==lastRoute;
   if(h.startsWith("c-") && S.dtabFor!==h){ S.dtab="client"; S.dtabFor=h; }
   lastRoute=h; closeCtx();
-  if(h.startsWith("c-")) vDossier(decodeURIComponent(h.slice(2))); else if(h==="echeances") vEcheances(); else if(h==="ajouter") vAjouter(); else if(h==="envois") vEnvois(); else if(h==="admin") vAdmin(); else vAccueil();
+  if(h.startsWith("c-")) vDossier(decodeURIComponent(h.slice(2))); else if(h==="echeances") vEcheances(); else if(h==="ajouter") vAjouter(); else if(h==="envois") vEnvois(); else if(h==="admin") vAdmin(); else if(h==="fournisseurs") vFournisseurs(); else vAccueil();
   if(changed) window.scrollTo(0,0);
 }
-let rr=0; function rerender(){ cancelAnimationFrame(rr); rr=requestAnimationFrame(()=>{ if(!S.ready) return; if(lastRoute==="ajouter"&&$("form")) return; if(lastRoute==="admin") return; if($("sheetbg")){ pendingRerender=true; return; } const ae=document.activeElement; if(ae&&ae.id==="q") { drawGrid(); return; } if(ae&&ae.matches&&ae.matches("input[type=date]")) return; const y=window.scrollY; const keep=lastRoute; lastRoute=""; route(true); if(lastRoute===keep) window.scrollTo(0,y); }); }
+let rr=0; function rerender(){ cancelAnimationFrame(rr); rr=requestAnimationFrame(()=>{ if(!S.ready) return; if(lastRoute==="ajouter"&&$("form")) return; if(lastRoute==="admin") return; if(lastRoute==="fournisseurs"&&document.activeElement&&document.activeElement.id==="fq") return; if($("sheetbg")){ pendingRerender=true; return; } const ae=document.activeElement; if(ae&&ae.id==="q") { drawGrid(); return; } if(ae&&ae.matches&&ae.matches("input[type=date]")) return; const y=window.scrollY; const keep=lastRoute; lastRoute=""; route(true); if(lastRoute===keep) window.scrollTo(0,y); }); }
 window.addEventListener("hashchange",()=>{ closeSheet(); route(); });
 $("back").addEventListener("click",()=>{ if(history.length>1) history.back(); else location.hash="#accueil"; });
 
@@ -870,6 +915,7 @@ document.addEventListener("click",async e=>{
   if(t.dataset.stage){ const id=lastRoute.slice(2), f=S.fiches.find(x=>x.id===id); const k=t.dataset.stage; const patch={etape:k}; if(k==="accepte"&&!D(id).date_signature) patch.date_signature=today();
     document.querySelectorAll("[data-stage]").forEach(b=>b.setAttribute("aria-pressed",b===t));
     try{ await setDossier(id,patch); rerender(); toast("Étape : "+STAGE_L[k]); if(f) await envoyer({client:f.nom,fiche:f.chemin,type:"fiche",texte:"Étape du dossier : "+STAGE_L[k]+(patch.date_signature?" (devis signé le "+patch.date_signature+")":"")}); }catch(err){ failToast(err); rerender(); } return; }
+  if(t.dataset.newfourn){ S.form={type:"fiche",kind:"fournisseur"}; lastRoute="ajouter"; location.hash="#ajouter"; vAjouter(); return; }
   if(t.dataset.new){ S.form={type:t.dataset.new,cli:t.dataset.for}; lastRoute="ajouter"; location.hash="#ajouter"; vAjouter(); return; }
   if(t.dataset.type){ readForm(); S.form.type=t.dataset.type; vAjouter(); return; }
   if(t.dataset.kind){ readForm(); S.form.kind=t.dataset.kind; vAjouter(); return; }
@@ -921,7 +967,7 @@ async function loadData(){
   S.envois=(data.inbox||[]); S.dossiers=data.dossiers||{};
   S.docs=(data.documents||[]).map((d,i)=>Object.assign({},d,{id:d.id||("doc-"+slug(d.fichier||d.nom||String(i)))}));
   S.mailsDb=withIds(data.mails); S.agendaDb=withIds(data.agenda); mergeAgenda();
-  S.blobs=data.blobs||{};
+  S.blobs=data.blobs||{}; S.coffre=(data.coffre||[]);
   S.canEdit=!!(S.cfg.token && S.me && S.me.role!=="lecture");
   badge(); syncLabel();
   freshOverlay();
