@@ -481,6 +481,30 @@ function linkedClients(f){
 /* ---------- EMPLOI DU TEMPS (agendas de l’équipe, _app/planning.json) ---------- */
 const PCOL=["cold","warm","ok","hot"];
 function planEvents(){ return ((S.planning||{}).evenements||[]); }
+/* Planning publié à part (data/planning.json) : lu au chargement, puis actualisé à la demande. */
+async function lirePlanning(texte){
+  const o=typeof texte==="string"?JSON.parse(texte):texte;
+  const pl=await C.decJson(S.key,o,C.AAD.planning); S.planning=pl; S.planH=o.h; return pl;
+}
+async function loadPlanning(){ try{ const r=await fetch("data/planning.json?t="+Date.now(),{cache:"no-store"}); if(r.ok) await lirePlanning(await r.json()); }catch(e){} }
+S.agendaEtat="";
+async function actualiserAgenda(force){
+  if(!S.cfg||!S.cfg.token||!S.cfg.site) return;
+  const k="crm-agenda-demande", last=lsGet(k,0);
+  if(!force && Date.now()-last<5*60e3) return;
+  lsSet(k,Date.now()); S.agendaEtat="actualisation…"; if(lastRoute==="planning") vPlanning();
+  try{ const r=await fetch("https://api.github.com/repos/"+S.cfg.repo+"/dispatches",{method:"POST",cache:"no-store",headers:{Authorization:"Bearer "+S.cfg.token,Accept:"application/vnd.github+json","Content-Type":"application/json"},body:JSON.stringify({event_type:"agenda"})});
+    if(!r.ok) throw new Error(r.status); }catch(e){ S.agendaEtat="actualisation impossible pour le moment"; if(lastRoute==="planning") vPlanning(); return; }
+  const avant=S.planH, t0=Date.now();
+  while(Date.now()-t0<180e3){
+    await new Promise(ok=>setTimeout(ok,10e3));
+    try{ const r=await fetch("https://api.github.com/repos/"+S.cfg.site+"/contents/data/planning.json?t="+Date.now(),{cache:"no-store",headers:{Accept:"application/vnd.github.raw"}});
+      if(!r.ok) continue; const o=JSON.parse(await r.text());
+      if(o.h && o.h!==avant){ await lirePlanning(o); S.agendaEtat="à jour"; toast("Emploi du temps mis à jour"); if(lastRoute==="planning"||lastRoute==="accueil") rerender(); return; }
+    }catch(e){}
+  }
+  S.agendaEtat="vérifié, aucun changement"; if(lastRoute==="planning") vPlanning();
+}
 function vPlanning(){
   setHead("Emploi du temps"); setTab("planning");
   const pl=S.planning||{personnes:[],evenements:[]}, pers=pl.personnes||[];
@@ -492,14 +516,16 @@ function vPlanning(){
   const per={}; days.forEach(d=>per[d]=[]);
   evs.forEach((e,i)=>{ const a=evDate(e), b=evEnd(e)||a; if(!a) return; days.forEach(d=>{ if(d>=a&&d<=b) per[d].push(Object.assign({_i:planEvents().indexOf(e)},e)); }); });
   const tk=e=>/journ/i.test(e.debut||"")?"0":(toTime(e.debut)||"9");
-  let h='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn ghost" data-pw="-7">← Semaine préc.</button><button class="btn ghost" data-pw="0">Cette semaine</button><button class="btn ghost" data-pw="7">Semaine suiv. →</button><span class="hint">du '+esc(frLong(m))+' au '+esc(frLong(sun))+'</span></div>';
+  let h='<p class="hint">'+(pl.maj?"Dernier changement d’agenda relevé le "+esc(frStamp(pl.maj)):"Agendas pas encore relevés")+(S.agendaEtat?" · "+(S.agendaEtat==="actualisation…"?'<span class="spin"></span> ':"")+esc(S.agendaEtat):"")+' <button class="linkbtn" data-agendaref="1">Actualiser</button></p>';
+  h+='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn ghost" data-pw="-7">← Semaine préc.</button><button class="btn ghost" data-pw="0">Cette semaine</button><button class="btn ghost" data-pw="7">Semaine suiv. →</button><span class="hint">du '+esc(frLong(m))+' au '+esc(frLong(sun))+'</span></div>';
   h+='<div class="filters" role="group" aria-label="Personne"><button data-pp="tous" aria-pressed="'+(sel==="tous")+'">Tout le monde</button>'+pers.map(p=>'<button data-pp="'+esc(p.id)+'" aria-pressed="'+(sel===p.id)+'"><span class="pdot p-'+col(p.id)+'"></span>'+esc(p.nom)+'</button>').join("")+'</div>';
   const vides=pers.filter(p=>!p.importe_le);
-  if(vides.length) h+='<p class="conn">Pas encore importé : '+vides.map(p=>esc(p.nom)).join(", ")+'. Ces agendas seront recopiés depuis OVH par ta synchro Claude.</p>';
+  if(vides.length) h+='<p class="conn">Pas encore relevé : '+vides.map(p=>esc(p.nom)).join(", ")+'.</p>';
   h+='<div class="planweek">'+days.map(d=>{ const l=per[d].sort((a,b)=>tk(a).localeCompare(tk(b))); const td=d===today();
     return '<section class="pday'+(td?" today":"")+'"><h3>'+esc(new Date(d+"T12:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}))+(td?' <small>aujourd’hui</small>':"")+'</h3>'+
       (l.length?'<ul class="list">'+l.map(e=>'<li><button class="pev p-'+col(e.personne)+'" data-pev="'+e._i+'"><span class="pev-t">'+esc(/journ/i.test(e.debut||"")?"Journée":(evTime(e)||"")+(e.fin&&toTime(e.fin)?" – "+toTime(e.fin).replace(":","h"):""))+'</span><span class="pev-b"><b>'+esc(e.sujet||"(sans objet)")+'</b>'+(e.lieu?'<small>'+esc(e.lieu)+'</small>':"")+'</span><span class="pev-p">'+esc(nomP(e.personne).split(" ")[0])+'</span></button></li>').join("")+'</ul>':'<p class="hint">Rien.</p>')+'</section>'; }).join("")+'</div>';
-  if(pl.maj) h+='<p class="hint">Agendas recopiés le '+esc(frStamp(pl.maj))+(pl.periode?" (période "+esc(pl.periode.replace("->","→"))+")":"")+'.</p>';
+  if(pl.periode) h+='<p class="hint">Période relevée : '+esc(pl.periode.replace("->","→"))+'. Les agendas se mettent à jour à chaque ouverture du site et toutes les 30 minutes en journée.</p>';
+  const err=pers.filter(p=>p.erreur); if(err.length) h+='<p class="conn">Dernière lecture impossible pour : '+err.map(p=>esc(p.nom)).join(", ")+' (version précédente affichée).</p>';
   view.innerHTML=h;
 }
 function openPlanEvent(i){
@@ -949,6 +975,7 @@ document.addEventListener("click",async e=>{
   if(t.dataset.stage){ const id=lastRoute.slice(2), f=S.fiches.find(x=>x.id===id); const k=t.dataset.stage; const patch={etape:k}; if(k==="accepte"&&!D(id).date_signature) patch.date_signature=today();
     document.querySelectorAll("[data-stage]").forEach(b=>b.setAttribute("aria-pressed",b===t));
     try{ await setDossier(id,patch); rerender(); toast("Étape : "+STAGE_L[k]); if(f) await envoyer({client:f.nom,fiche:f.chemin,type:"fiche",texte:"Étape du dossier : "+STAGE_L[k]+(patch.date_signature?" (devis signé le "+patch.date_signature+")":"")}); }catch(err){ failToast(err); rerender(); } return; }
+  if(t.dataset.agendaref){ actualiserAgenda(true); return; }
   if(t.dataset.pw!=null){ S.pw=t.dataset.pw==="0"?monday():addDays(S.pw||monday(),Number(t.dataset.pw)); vPlanning(); return; }
   if(t.dataset.pp){ S.pp=t.dataset.pp; vPlanning(); return; }
   if(t.dataset.pev!=null){ openPlanEvent(Number(t.dataset.pev)); return; }
@@ -1004,7 +1031,7 @@ async function loadData(){
   S.envois=(data.inbox||[]); S.dossiers=data.dossiers||{};
   S.docs=(data.documents||[]).map((d,i)=>Object.assign({},d,{id:d.id||("doc-"+slug(d.fichier||d.nom||String(i)))}));
   S.mailsDb=withIds(data.mails); S.agendaDb=withIds(data.agenda); mergeAgenda();
-  S.blobs=data.blobs||{}; S.coffre=(data.coffre||[]); S.planning=data.planning||{personnes:[],evenements:[]};
+  S.blobs=data.blobs||{}; S.coffre=(data.coffre||[]);
   S.canEdit=!!(S.cfg.token && S.me && S.me.role!=="lecture");
   badge(); syncLabel();
   freshOverlay();
@@ -1053,10 +1080,11 @@ async function afterLogin(){
     if(!(users.comptes||[]).some(c=>c.id===S.me.id)){ await IDB.del("session"); throw new Error("Ce compte a été supprimé."); }
   }catch(e){ if(/supprimé/.test(e.message)) throw e; }
   view.innerHTML='<p class="status"><span class="spin"></span> Déchiffrement des données…</p>';
-  await loadData();
+  await loadData(); await loadPlanning();
   S.recents=lsGet("crm-recents-"+S.me.id,[]); S.vus=lsGet("crm-vus-"+S.me.id,{});
   $("tabs").hidden=false; $("deskmenu").hidden=false; $("acct").hidden=false;
   S.ready=true; lastRoute=""; route(true);
+  actualiserAgenda(false);
 }
 function vLogin(errMsg){
   setHead("CRM Robine"); $("tabs").hidden=true; $("deskmenu").hidden=true; $("acct").hidden=true;

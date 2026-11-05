@@ -3,7 +3,7 @@
 "use strict";
 const te=new TextEncoder(), td=new TextDecoder();
 const ITER=600000, MIN_PASS=16;
-const AAD={data:te.encode("crm-robine:data:v1"), fichier:te.encode("crm-robine:fichier:v1"), annuaire:te.encode("crm-robine:annuaire:v1")};
+const AAD={data:te.encode("crm-robine:data:v1"), fichier:te.encode("crm-robine:fichier:v1"), annuaire:te.encode("crm-robine:annuaire:v1"), planning:te.encode("crm-robine:planning:v1")};
 const b64e=u8=>{ u8=u8 instanceof Uint8Array?u8:new Uint8Array(u8); let s=""; for(let i=0;i<u8.length;i+=0x8000) s+=String.fromCharCode.apply(null,u8.subarray(i,i+0x8000)); return btoa(s); };
 const b64d=b=>{ const s=atob(String(b||"").replace(/\s+/g,"")); const u=new Uint8Array(s.length); for(let i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; };
 const rnd=n=>crypto.getRandomValues(new Uint8Array(n));

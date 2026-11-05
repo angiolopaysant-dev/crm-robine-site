@@ -1,5 +1,5 @@
 /* Service worker du CRM : l’app s’ouvre hors connexion avec les dernières données (toujours chiffrées). */
-const SHELL = "crm-shell-v3", DATA = "crm-data-v1", LIBS = "crm-libs-v1";
+const SHELL = "crm-shell-v4", DATA = "crm-data-v1", LIBS = "crm-libs-v1";
 const FILES = ["./", "index.html", "style.css", "app.js", "crypto.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => ![SHELL, DATA, LIBS].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim())); });
@@ -13,7 +13,7 @@ self.addEventListener("fetch", e => {
       e.respondWith(caches.open(DATA).then(async c => (await c.match(req)) || fetch(req).then(r => { if (r.ok) c.put(req, r.clone()); return r; })));
       return;
     }
-    if (/\/(data\/data\.json|users\.json)$/.test(p)) { // données : réseau d’abord, copie chiffrée hors ligne
+    if (/\/(data\/(data|planning)\.json|users\.json)$/.test(p)) { // données : réseau d’abord, copie chiffrée hors ligne
       e.respondWith(fetch(req).then(r => { if (r.ok) { const cl = r.clone(); caches.open(DATA).then(c => c.put(strip(req), cl)); } return r; })
         .catch(() => caches.open(DATA).then(c => c.match(strip(req))).then(r => r || Response.error())));
       return;
