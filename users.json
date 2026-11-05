@@ -1,0 +1,23 @@
+{
+ "v": 1,
+ "kdf": "PBKDF2-SHA256",
+ "iter": 600000,
+ "comptes": [
+  {
+   "id": "165925f464e56d9ac59c9df3058020bf349f6c76daed75a497ad19d3d2526d3f",
+   "sel": "Oa4Vvxd+ePHuwEF38X9+eg==",
+   "iv": "K8xkugHjw7g0XszU",
+   "cle": "r7UnSQgFmWMJZjVkjrv5bvIvSmJr2hLWmd8OAOORizHoGEd04F2OzBk/3216j+yx2zCNvoz6T0U+HFV6kLUYMXaQaBp23oddtO/ORLlyOHqxUiIku3ALOcOjC/YXWk76l5hErAdTWlFftiowyTT9kDqC8iQkhNdUk1OezdjKfwUagnELwi33dp8jNrU="
+  },
+  {
+   "id": "2c93096c48dcad65514fd9d336eaaa80366d3c7d956588b827f4e07c88dd085a",
+   "sel": "mWTafoNKQgWTzCVqEKOBLg==",
+   "iv": "3GPidFjf/H1eqPE5",
+   "cle": "MKr6UQ7w2Wxjsi/NK2GpRRCW3uAP1+n8A737/9yS229yLwMGfTF7XDsXcIViel5vl7HP5nmzVj9nAwjTqaDbOIcEucva8jiQ4zPxJO3eTX65KXtBxTXLA6dQTZ0VgobE6q+yBw+hzHqKBNvknG+MxzHDVOo935pyNWZ2PCE7XC9Ls78GaBAOUWuF9TU="
+  }
+ ],
+ "annuaire": {
+  "iv": "uCqWnPw2kbP5F0hW",
+  "ct": "8BdcZUtpPUj1YwXfJCktZ092zWfRkN92SNUiulIsCmlkCWxMbRuffHd+MySrNceXSIb84gT8kCXP3gF5JBR2Hm4fEMfyOqpkZuJPJZXZiuoXK3A4svpFV0bN2nRAM+siKuyjCoVQRPPWYg0RA1k6DQpLCZ207PSoMlYBKi78RDk3zy0194k+lvP4mSoyLnLuahybudtamcBcKWBXfvj5WL3g5UE93UbqGLhDhqv1ri5qFnqnAJik1Z0nn2K7d/XT5VBRBsth7mJWApAcHyOBVDP+zsBJ1k2jYZ+MRoIH30HJJewlCPu+Rubj+FRflL7tO0fVrhYx6jPQihXqv6MNVr0wsoIviqPK5TSe83pKOIffQBBkwq0uqpByZpPmODzqNL+qzc3T6I1isu31pTyyb1IprfmnsMWfrCevKkFlYKCDUCsINO3CgXo8Z9gRH0FKVbjbw6HEzUdo4XQPoHudCU9gjN6BoYFnVBPbgvLPmqOEMZFW/G+kFtLJ0X3sjwUuCI0wDFahjCV39Nc7gg=="
+ }
+}
