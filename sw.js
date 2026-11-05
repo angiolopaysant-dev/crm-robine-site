@@ -1,5 +1,5 @@
 /* Service worker du CRM : l’app s’ouvre hors connexion avec les dernières données (toujours chiffrées). */
-const SHELL = "crm-shell-v2", DATA = "crm-data-v1", LIBS = "crm-libs-v1";
+const SHELL = "crm-shell-v3", DATA = "crm-data-v1", LIBS = "crm-libs-v1";
 const FILES = ["./", "index.html", "style.css", "app.js", "crypto.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png", "icons/apple-touch-icon.png"];
 self.addEventListener("install", e => { e.waitUntil(caches.open(SHELL).then(c => c.addAll(FILES)).then(() => self.skipWaiting())); });
 self.addEventListener("activate", e => { e.waitUntil(caches.keys().then(ks => Promise.all(ks.filter(k => ![SHELL, DATA, LIBS].includes(k)).map(k => caches.delete(k)))).then(() => self.clients.claim())); });

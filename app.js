@@ -478,6 +478,40 @@ function linkedClients(f){
   return [...out.values()].sort((a,b)=>a.nom.localeCompare(b.nom,"fr"));
 }
 
+/* ---------- EMPLOI DU TEMPS (agendas de l’équipe, _app/planning.json) ---------- */
+const PCOL=["cold","warm","ok","hot"];
+function planEvents(){ return ((S.planning||{}).evenements||[]); }
+function vPlanning(){
+  setHead("Emploi du temps"); setTab("planning");
+  const pl=S.planning||{personnes:[],evenements:[]}, pers=pl.personnes||[];
+  const col=id=>PCOL[Math.max(0,pers.findIndex(p=>p.id===id))%PCOL.length];
+  const nomP=id=>{ const p=pers.find(x=>x.id===id); return p?p.nom:id; };
+  const m=S.pw||monday(), sun=addDays(m,6), sel=S.pp||"tous";
+  const days=[...Array(7)].map((_,i)=>addDays(m,i));
+  const evs=planEvents().filter(e=>sel==="tous"||e.personne===sel);
+  const per={}; days.forEach(d=>per[d]=[]);
+  evs.forEach((e,i)=>{ const a=evDate(e), b=evEnd(e)||a; if(!a) return; days.forEach(d=>{ if(d>=a&&d<=b) per[d].push(Object.assign({_i:planEvents().indexOf(e)},e)); }); });
+  const tk=e=>/journ/i.test(e.debut||"")?"0":(toTime(e.debut)||"9");
+  let h='<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap"><button class="btn ghost" data-pw="-7">← Semaine préc.</button><button class="btn ghost" data-pw="0">Cette semaine</button><button class="btn ghost" data-pw="7">Semaine suiv. →</button><span class="hint">du '+esc(frLong(m))+' au '+esc(frLong(sun))+'</span></div>';
+  h+='<div class="filters" role="group" aria-label="Personne"><button data-pp="tous" aria-pressed="'+(sel==="tous")+'">Tout le monde</button>'+pers.map(p=>'<button data-pp="'+esc(p.id)+'" aria-pressed="'+(sel===p.id)+'"><span class="pdot p-'+col(p.id)+'"></span>'+esc(p.nom)+'</button>').join("")+'</div>';
+  const vides=pers.filter(p=>!p.importe_le);
+  if(vides.length) h+='<p class="conn">Pas encore importé : '+vides.map(p=>esc(p.nom)).join(", ")+'. Ces agendas seront recopiés depuis OVH par ta synchro Claude.</p>';
+  h+='<div class="planweek">'+days.map(d=>{ const l=per[d].sort((a,b)=>tk(a).localeCompare(tk(b))); const td=d===today();
+    return '<section class="pday'+(td?" today":"")+'"><h3>'+esc(new Date(d+"T12:00").toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}))+(td?' <small>aujourd’hui</small>':"")+'</h3>'+
+      (l.length?'<ul class="list">'+l.map(e=>'<li><button class="pev p-'+col(e.personne)+'" data-pev="'+e._i+'"><span class="pev-t">'+esc(/journ/i.test(e.debut||"")?"Journée":(evTime(e)||"")+(e.fin&&toTime(e.fin)?" – "+toTime(e.fin).replace(":","h"):""))+'</span><span class="pev-b"><b>'+esc(e.sujet||"(sans objet)")+'</b>'+(e.lieu?'<small>'+esc(e.lieu)+'</small>':"")+'</span><span class="pev-p">'+esc(nomP(e.personne).split(" ")[0])+'</span></button></li>').join("")+'</ul>':'<p class="hint">Rien.</p>')+'</section>'; }).join("")+'</div>';
+  if(pl.maj) h+='<p class="hint">Agendas recopiés le '+esc(frStamp(pl.maj))+(pl.periode?" (période "+esc(pl.periode.replace("->","→"))+")":"")+'.</p>';
+  view.innerHTML=h;
+}
+function openPlanEvent(i){
+  const e=planEvents()[i]; if(!e) return; const pers=((S.planning||{}).personnes||[]).find(p=>p.id===e.personne);
+  const f=e.dossier?S.fiches.find(x=>x.id===e.dossier):evClient(e);
+  const allDay=/journ/i.test(e.debut||"");
+  const quand=allDay?(e.jours?e.jours.split("->").map(x=>frDate(x.trim())).join(" → "):"journée entière"):[e.debut,e.fin].filter(Boolean).join(" → ");
+  const rows=[["Personne",pers?pers.nom:e.personne],["Quand",quand],["Lieu",e.lieu],["Organisateur",e.organisateur],["Participants",(e.participants||[]).map(p=>typeof p==="string"?p:(p.nom||p.name||p.email||"")).filter(Boolean).join(", ")],["Catégorie",e.categorie],["Statut",e.statut||e.disponibilite],["Rappel",e.rappel]].filter(r=>r[1]);
+  sheet('<h3>'+esc(e.sujet||"Événement")+'</h3><dl class="kv">'+rows.map(([k,v])=>'<dt>'+k+'</dt><dd>'+esc(v)+'</dd>').join("")+'</dl>'+(e.description?'<div class="box" style="white-space:pre-wrap;overflow-wrap:anywhere;max-height:40vh;overflow:auto">'+esc(e.description)+'</div>':"")+
+    (e.lieu?'<a class="btn ghost" href="https://www.google.com/maps/dir/?api=1&destination='+encodeURIComponent(e.lieu)+'" target="_blank" rel="noopener noreferrer">Itinéraire</a>':"")+(f?'<button class="btn" data-open="'+esc(f.id)+'">Ouvrir le dossier '+esc(f.nom)+'</button>':"")+'<button class="btn ghost" data-close>Fermer</button>');
+}
+
 /* ---------- FOURNISSEURS ---------- */
 function vFournisseurs(){
   setHead("Fournisseurs"); setTab("fournisseurs");
@@ -897,7 +931,7 @@ function route(force){
   if(!force && h===lastRoute) return; const changed=h!==lastRoute;
   if(h.startsWith("c-") && S.dtabFor!==h){ S.dtab="client"; S.dtabFor=h; }
   lastRoute=h; closeCtx();
-  if(h.startsWith("c-")) vDossier(decodeURIComponent(h.slice(2))); else if(h==="echeances") vEcheances(); else if(h==="ajouter") vAjouter(); else if(h==="envois") vEnvois(); else if(h==="admin") vAdmin(); else if(h==="fournisseurs") vFournisseurs(); else vAccueil();
+  if(h.startsWith("c-")) vDossier(decodeURIComponent(h.slice(2))); else if(h==="echeances") vEcheances(); else if(h==="ajouter") vAjouter(); else if(h==="envois") vEnvois(); else if(h==="admin") vAdmin(); else if(h==="fournisseurs") vFournisseurs(); else if(h==="planning") vPlanning(); else vAccueil();
   if(changed) window.scrollTo(0,0);
 }
 let rr=0; function rerender(){ cancelAnimationFrame(rr); rr=requestAnimationFrame(()=>{ if(!S.ready) return; if(lastRoute==="ajouter"&&$("form")) return; if(lastRoute==="admin") return; if(lastRoute==="fournisseurs"&&document.activeElement&&document.activeElement.id==="fq") return; if($("sheetbg")){ pendingRerender=true; return; } const ae=document.activeElement; if(ae&&ae.id==="q") { drawGrid(); return; } if(ae&&ae.matches&&ae.matches("input[type=date]")) return; const y=window.scrollY; const keep=lastRoute; lastRoute=""; route(true); if(lastRoute===keep) window.scrollTo(0,y); }); }
@@ -915,6 +949,9 @@ document.addEventListener("click",async e=>{
   if(t.dataset.stage){ const id=lastRoute.slice(2), f=S.fiches.find(x=>x.id===id); const k=t.dataset.stage; const patch={etape:k}; if(k==="accepte"&&!D(id).date_signature) patch.date_signature=today();
     document.querySelectorAll("[data-stage]").forEach(b=>b.setAttribute("aria-pressed",b===t));
     try{ await setDossier(id,patch); rerender(); toast("Étape : "+STAGE_L[k]); if(f) await envoyer({client:f.nom,fiche:f.chemin,type:"fiche",texte:"Étape du dossier : "+STAGE_L[k]+(patch.date_signature?" (devis signé le "+patch.date_signature+")":"")}); }catch(err){ failToast(err); rerender(); } return; }
+  if(t.dataset.pw!=null){ S.pw=t.dataset.pw==="0"?monday():addDays(S.pw||monday(),Number(t.dataset.pw)); vPlanning(); return; }
+  if(t.dataset.pp){ S.pp=t.dataset.pp; vPlanning(); return; }
+  if(t.dataset.pev!=null){ openPlanEvent(Number(t.dataset.pev)); return; }
   if(t.dataset.newfourn){ S.form={type:"fiche",kind:"fournisseur"}; lastRoute="ajouter"; location.hash="#ajouter"; vAjouter(); return; }
   if(t.dataset.new){ S.form={type:t.dataset.new,cli:t.dataset.for}; lastRoute="ajouter"; location.hash="#ajouter"; vAjouter(); return; }
   if(t.dataset.type){ readForm(); S.form.type=t.dataset.type; vAjouter(); return; }
@@ -967,7 +1004,7 @@ async function loadData(){
   S.envois=(data.inbox||[]); S.dossiers=data.dossiers||{};
   S.docs=(data.documents||[]).map((d,i)=>Object.assign({},d,{id:d.id||("doc-"+slug(d.fichier||d.nom||String(i)))}));
   S.mailsDb=withIds(data.mails); S.agendaDb=withIds(data.agenda); mergeAgenda();
-  S.blobs=data.blobs||{}; S.coffre=(data.coffre||[]);
+  S.blobs=data.blobs||{}; S.coffre=(data.coffre||[]); S.planning=data.planning||{personnes:[],evenements:[]};
   S.canEdit=!!(S.cfg.token && S.me && S.me.role!=="lecture");
   badge(); syncLabel();
   freshOverlay();
